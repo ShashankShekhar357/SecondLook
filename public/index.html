@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecondLook: check a link before you click</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Public+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #ECEFEA;
+    --card: #F8FAF6;
+    --ink: #172033;
+    --muted: #55607A;
+    --line: #CBD3C9;
+    --danger: #A8201A;
+    --caution: #9A5B00;
+    --safe: #2B6A4B;
+    --display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+    --body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 1rem/1.55 var(--body);
+  }
+
+  main {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 4rem;
+  }
+
+  .brand {
+    font: 800 1.15rem var(--display);
+    letter-spacing: -0.01em;
+  }
+
+  h1 {
+    font: 800 clamp(2.3rem, 7vw, 3.8rem)/1.02 var(--display);
+    letter-spacing: -0.025em;
+    margin: 3rem 0 0.9rem;
+  }
+
+  .lede {
+    color: var(--muted);
+    max-width: 34rem;
+    margin: 0 0 2rem;
+  }
+
+  form {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  input {
+    flex: 1 1 18rem;
+    min-width: 0;
+    font: inherit;
+    padding: 0.9rem 1rem;
+    border: 2px solid var(--ink);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+  }
+
+  button {
+    font: 600 1rem var(--body);
+    padding: 0.9rem 1.5rem;
+    border: 2px solid var(--ink);
+    border-radius: 6px;
+    background: var(--ink);
+    color: #fff;
+    cursor: pointer;
+  }
+
+  button:disabled { opacity: 0.6; cursor: wait; }
+
+  :focus-visible {
+    outline: 3px solid #3A6FF0;
+    outline-offset: 2px;
+  }
+
+  .status {
+    margin: 0.9rem 0 0;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+
+  #output { margin-top: 2rem; }
+
+  .note { color: var(--muted); margin: 0; }
+
+  .error {
+    margin: 0;
+    padding: 0.9rem 1rem;
+    border-left: 4px solid var(--danger);
+    background: var(--card);
+    color: var(--danger);
+    font-weight: 600;
+  }
+
+  .report {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.5rem;
+  }
+
+  .top {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .stamp {
+    font: 800 1.5rem/1 var(--display);
+    padding: 0.65rem 1rem;
+    border: 3px solid currentColor;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 2px var(--card), inset 0 0 0 4px currentColor;
+    transform: rotate(-3deg);
+    animation: press 0.35s ease-out;
+    white-space: nowrap;
+  }
+
+  @keyframes press {
+    from { transform: rotate(-3deg) scale(1.35); opacity: 0; }
+    to { transform: rotate(-3deg) scale(1); opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stamp { animation: none; }
+  }
+
+  .dangerous { color: var(--danger); }
+  .suspicious { color: var(--caution); }
+  .clear { color: var(--safe); }
+
+  .verdict-text { flex: 1 1 16rem; min-width: 0; }
+
+  .url {
+    margin: 0 0 0.4rem;
+    font: 0.875rem ui-monospace, Menlo, Consolas, monospace;
+    color: var(--muted);
+    word-break: break-all;
+  }
+
+  .summary { margin: 0; font-weight: 600; }
+
+  .checks {
+    list-style: none;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .checks li {
+    display: grid;
+    grid-template-columns: 1.5rem 1fr;
+    gap: 0.75rem;
+    padding: 0.95rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .mark { font-weight: 800; text-align: center; }
+  .mark.ok { color: var(--safe); }
+  .mark.warn { color: var(--caution); }
+  .mark.bad { color: var(--danger); }
+  .mark.skip { color: var(--muted); }
+
+  .checks h2 { font: 600 1rem var(--body); margin: 0; }
+  .checks p { margin: 0.2rem 0 0; color: var(--muted); }
+  .checks a { color: var(--ink); }
+
+  .footnote {
+    margin: 1rem 0 0;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">SecondLook</div>
+
+  <h1>Check a link before you click it.</h1>
+  <p class="lede">Paste a web address. We compare it against malware and phishing lists, ask VirusTotal, and look for tricks in the address itself.</p>
+
+  <form id="check-form">
+    <input id="url" name="url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/login" aria-label="Web address to check" required>
+    <button id="submit" type="submit">Check link</button>
+  </form>
+  <p class="status" id="status"></p>
+
+  <div id="output" aria-live="polite"></div>
+</main>
+
+<script>
+  const form = document.getElementById("check-form");
+  const input = document.getElementById("url");
+  const button = document.getElementById("submit");
+  const output = document.getElementById("output");
+  const statusLine = document.getElementById("status");
+
+  const VERDICT_LABELS = {
+    dangerous: "Dangerous",
+    suspicious: "Suspicious",
+    clear: "No known threats",
+  };
+
+  const MARKS = { ok: "\u2713", warn: "!", bad: "\u2715", skip: "\u2013" };
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function buildRow(kind, title, details, link) {
+    const row = el("li");
+    row.appendChild(el("span", "mark " + kind, MARKS[kind]));
+
+    const body = el("div");
+    body.appendChild(el("h2", "", title));
+
+    for (const detail of details) {
+      body.appendChild(el("p", "", detail));
+    }
+
+    if (link) {
+      const paragraph = el("p");
+      const anchor = el("a", "", link.text);
+      anchor.href = link.href;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      paragraph.appendChild(anchor);
+      body.appendChild(paragraph);
+    }
+
+    row.appendChild(body);
+    return row;
+  }
+
+  function describeHit(hit, verb) {
+    if (hit.exact) {
+      return "This exact address matches " + hit.domain.replace(/\^$/, "") + ", which " + verb + " " + hit.lists.join(", ") + ".";
+    }
+    return hit.domain + " " + verb + " " + hit.lists.join(", ") + ".";
+  }
+
+  function filterListRow(filterLists) {
+    const threats = filterLists.hits.filter((hit) => hit.isThreat);
+    const others = filterLists.hits.filter((hit) => !hit.isThreat);
+
+    if (threats.length > 0) {
+      const details = threats.map((hit) => describeHit(hit, "is listed by"));
+      return buildRow("bad", "Found on a malware or phishing list", details);
+    }
+
+    if (others.length > 0) {
+      const details = others.map((hit) => describeHit(hit, "is blocked by"));
+      details.push("These lists mostly block ads, trackers and unwanted sites, so this alone does not mean the link is malicious.");
+      return buildRow("skip", "Blocked by your ad and privacy lists", details);
+    }
+
+    if (filterLists.domains === 0) {
+      return buildRow("skip", "Filter lists are not loaded yet", ["The server is still downloading them. Try again shortly."]);
+    }
+
+    const count = filterLists.domains.toLocaleString();
+    const exact = filterLists.urlRules.toLocaleString();
+    return buildRow("ok", "Not on any filter list", ["Checked against " + count + " domains and " + exact + " exact addresses from " + filterLists.lists + " lists."]);
+  }
+
+  function virusTotalRow(virusTotal) {
+    if (virusTotal.status === "done") {
+      const flagged = virusTotal.malicious + virusTotal.suspicious;
+      const link = { text: "Open the full VirusTotal report", href: virusTotal.reportUrl };
+
+      if (flagged > 0) {
+        const title = flagged + " of " + virusTotal.total + " security engines flagged this link";
+        const details = [virusTotal.malicious + " said malicious, " + virusTotal.suspicious + " said suspicious."];
+        return buildRow(virusTotal.malicious >= 3 ? "bad" : "warn", title, details, link);
+      }
+
+      const details = [virusTotal.harmless + " engines said harmless and " + virusTotal.undetected + " found nothing."];
+      return buildRow("ok", "No security engine flagged this link", details, link);
+    }
+
+    if (virusTotal.status === "pending") {
+      return buildRow("warn", "VirusTotal is still scanning", [virusTotal.message]);
+    }
+
+    return buildRow("skip", "VirusTotal was not used", [virusTotal.message]);
+  }
+
+  function patternRow(signals) {
+    if (signals.length > 0) {
+      return buildRow("warn", "The address has unusual features", signals);
+    }
+    return buildRow("ok", "No unusual features in the address", ["Nothing odd in the domain, ending or structure."]);
+  }
+
+  function render(result) {
+    const report = el("section", "report");
+
+    const top = el("div", "top");
+    top.appendChild(el("div", "stamp " + result.verdict, VERDICT_LABELS[result.verdict]));
+
+    const text = el("div", "verdict-text");
+    text.appendChild(el("p", "url", result.url));
+    text.appendChild(el("p", "summary", result.summary));
+    top.appendChild(text);
+    report.appendChild(top);
+
+    const checks = el("ul", "checks");
+    checks.appendChild(filterListRow(result.filterLists));
+    checks.appendChild(virusTotalRow(result.virusTotal));
+    checks.appendChild(patternRow(result.signals));
+    report.appendChild(checks);
+
+    if (result.cached) {
+      report.appendChild(el("p", "footnote", "This is a saved result from the last 24 hours."));
+    }
+
+    output.replaceChildren(report);
+  }
+
+  async function loadStatus() {
+    try {
+      const response = await fetch("/api/status");
+      const status = await response.json();
+
+      const lists = status.domains > 0
+        ? status.domains.toLocaleString() + " domains and " + status.urlRules.toLocaleString() + " exact addresses loaded from " + status.lists + " lists"
+        : "Filter lists are loading";
+      const virusTotal = status.virusTotal ? "VirusTotal connected" : "VirusTotal not configured";
+
+      statusLine.textContent = lists + ". " + virusTotal + ".";
+    } catch (error) {
+      statusLine.textContent = "";
+    }
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    button.disabled = true;
+    output.replaceChildren(el("p", "note", "Checking. New links can take up to 30 seconds."));
+
+    try {
+      const response = await fetch("/api/check", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: input.value }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || "Something went wrong. Try again.");
+
+      render(data);
+    } catch (error) {
+      output.replaceChildren(el("p", "error", error.message));
+    } finally {
+      button.disabled = false;
+      loadStatus();
+    }
+  });
+
+  loadStatus();
+</script>
+</body>
+</html>
